@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Game Reviewer</title>
+<style>
+:root{--bg:#0d1117;--pn:#161b22;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--ln:#58a6ff;--gr:#238636}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+header{border-bottom:1px solid var(--bd);background:var(--pn);padding:14px 24px;display:flex;gap:10px;align-items:center;font-weight:600;font-size:16px}
+main{max-width:1100px;margin:24px auto;padding:0 16px}
+input,select,button{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:5px 12px;font:inherit}
+button{background:#21262d;cursor:pointer;display:inline-flex;gap:6px;align-items:center}button:hover{background:#30363d}
+button.go{background:var(--gr);border-color:#2ea043;font-weight:600}
+.box{background:var(--pn);border:1px solid var(--bd);border-radius:6px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid var(--bd);text-align:left}tr.g{cursor:pointer}tr.g:hover{background:#1c2128}
+.win{color:#3fb950}.loss{color:#f85149}.draw{color:var(--mu)}.mu{color:var(--mu)}a,.ln{color:var(--ln);cursor:pointer;text-decoration:none}
+#rv{display:none;gap:16px;flex-wrap:wrap}#bw{position:relative;width:min(92vw,560px);aspect-ratio:1}
+#grid{display:grid;grid-template-columns:repeat(8,1fr);width:100%;height:100%;border:1px solid var(--bd)}
+.sq{display:flex;align-items:center;justify-content:center}.sq.l{background:#40464f}.sq.d{background:#20262e}.sq.hl{box-shadow:inset 0 0 0 100px rgba(88,166,255,.25)}
+.sq img{width:92%;height:92%}svg#ar{position:absolute;inset:0;pointer-events:none}
+#side{flex:1;min-width:280px}#ml{max-height:300px;overflow:auto;display:grid;grid-template-columns:36px 1fr 1fr;gap:2px}
+.mv{padding:2px 6px;border-radius:4px;cursor:pointer;display:flex;gap:4px;align-items:center}.mv:hover{background:#21262d}.mv.on{background:#1f3a5f}
+.b{display:inline-flex;vertical-align:middle}.b svg{width:14px;height:14px}
+</style></head><body>
+<header><i data-lucide="crown"></i> Game Reviewer</header>
+<main>
+<div id="home">
+ <div class="box"><div class="row"><i data-lucide="search"></i><input id="u" placeholder="chess.com username" value=""><button class="go" id="sb">Search games</button><span id="st" class="mu"></span></div></div>
+ <div id="gl" style="display:none" class="box">
+  <div class="row" style="margin-bottom:12px">
+   <select id="so"><option value="dn">Newest first</option><option value="do">Oldest first</option><option value="rh">Opponent rating high</option><option value="rl">Opponent rating low</option><option value="res">Result</option></select>
+   <select id="fr"><option value="">All results</option><option>win</option><option>loss</option><option>draw</option></select>
+   <select id="ft"><option value="">All time classes</option><option>bullet</option><option>blitz</option><option>rapid</option><option>daily</option></select>
+   <select id="fc"><option value="">Both colors</option><option>white</option><option>black</option></select>
+   <span id="cnt" class="mu"></span></div>
+  <table><thead><tr><th>Date</th><th>Opponent</th><th>Color</th><th>Result</th><th>Type</th></tr></thead><tbody id="tb"></tbody></table></div>
+</div>
+<div id="rv">
+ <div><div class="row" style="margin-bottom:8px"><button id="back"><i data-lucide="arrow-left"></i> Games</button><span id="gt" class="mu"></span></div>
+  <div id="bw"><div id="grid"></div><svg id="ar" viewBox="0 0 80 80"><defs><marker id="mk" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4z" fill="context-stroke"/></marker></defs><g id="ag"></g></svg></div>
+  <div class="row" style="margin-top:8px;justify-content:center"><button id="p0"><i data-lucide="chevrons-left"></i></button><button id="pp"><i data-lucide="chevron-left"></i></button><button id="pn"><i data-lucide="chevron-right"></i></button><button id="p9"><i data-lucide="chevrons-right"></i></button></div></div>
+ <div id="side">
+  <div class="box"><div class="row"><span class="mu">Rating system</span><select id="sy"><option value="cc">Chess.com</option><option value="im">Improved</option></select></div><div id="pg" class="mu" style="margin-top:6px"></div></div>
+  <div class="box" id="info">Loading</div>
+  <div class="box"><div class="row"><button id="sbm"><i data-lucide="target"></i> Show Best Move</button><select id="cl"></select><button id="sam"><i data-lucide="list"></i> Show All Moves</button><button id="clr"><i data-lucide="eraser"></i></button></div></div>
+  <div class="box" id="ml"></div></div>
+</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),MONTHS=6;
+const IC={brilliant:'sparkles',great:'zap',best:'star',excellent:'thumbs-up',good:'check',practical:'brain',book:'book-open',novelty:'lightbulb',passive:'turtle',inaccuracy:'circle-help',mistake:'circle-alert',miss:'x',blunder:'circle-x'};
+const CO={brilliant:'#1baca6',great:'#5c8bb0',best:'#81b64c',excellent:'#81b64c',good:'#95b776',practical:'#a78bfa',book:'#a88865',novelty:'#e3b341',passive:'#8b949e',inaccuracy:'#f7c631',mistake:'#e68f00',miss:'#ff7769',blunder:'#fa412d'};
+const SY={brilliant:'!!',great:'!',inaccuracy:'?!',mistake:'?',blunder:'??',miss:'X'};
+const SYS={cc:['brilliant','great','best','excellent','good','book','inaccuracy','mistake','miss','blunder'],im:['brilliant','great','best','practical','good','book','novelty','passive','inaccuracy','mistake','miss','blunder']};
+const VAL={p:1,n:3,b:3,r:5,q:9,k:0},wp=c=>1/(1+Math.exp(-0.00368208*c));
+const badge=c=>`<span class="b" style="color:${CO[c]}" title="${c}"><i data-lucide="${IC[c]}"></i></span>`;
+let G=[],user='',cur=0,flip=false,moves=[],fens=[],lines=[],R=[],sf,gen=0;
+// ---------- games ----------
+const resOf=r=>r=='win'?'win':['checkmated','timeout','resigned','abandoned','lose'].includes(r)?'loss':'draw';
+$('#sb').onclick=async()=>{user=$('#u').value.trim().toLowerCase();if(!user)return;$('#st').textContent='Loading';G=[];
+ try{const a=(await (await fetch(`https://api.chess.com/pub/player/${user}/games/archives`)).json()).archives.slice(-MONTHS);
+  const m=await Promise.all(a.map(u=>fetch(u).then(r=>r.json())));
+  m.forEach(x=>x.games.forEach(g=>{if(!g.pgn)return;const w=g.white.username.toLowerCase()==user,me=w?g.white:g.black,op=w?g.black:g.white;
+   G.push({g,w,op:op.username,or:op.rating,res:resOf(me.result),tc:g.time_class,t:g.end_time})}));
+  $('#st').textContent=`${G.length} games (last ${MONTHS} months)`;$('#gl').style.display='';list()}catch(e){$('#st').textContent='Failed: user not found or network blocked'}};
+$('#u').onkeydown=e=>e.key=='Enter'&&$('#sb').click();
+['so','fr','ft','fc'].forEach(i=>$('#'+i).onchange=list);
+function list(){let a=G.filter(x=>(!$('#fr').value||x.res==$('#fr').value)&&(!$('#ft').value||x.tc==$('#ft').value)&&(!$('#fc').value||(x.w?'white':'black')==$('#fc').value));
+ const s=$('#so').value;a.sort((x,y)=>s=='dn'?y.t-x.t:s=='do'?x.t-y.t:s=='rh'?y.or-x.or:s=='rl'?x.or-y.or:x.res.localeCompare(y.res));
+ $('#cnt').textContent=a.length+' shown';$('#tb').innerHTML=a.map((x,i)=>`<tr class="g" data-i="${G.indexOf(x)}"><td>${new Date(x.t*1e3).toLocaleDateString()}</td><td>${x.op} (${x.or})</td><td>${x.w?'White':'Black'}</td><td class="${x.res}">${x.res}</td><td>${x.tc}</td></tr>`).join('');
+ document.querySelectorAll('tr.g').forEach(r=>r.onclick=()=>open(G[r.dataset.i]))}
+// ---------- engine ----------
+function eng(){if(!sf){sf=new Worker(URL.createObjectURL(new Blob(['importScripts("https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js")'])));sf.postMessage('uci');sf.postMessage('setoption name MultiPV value 4')}return sf}
+const analyse=fen=>new Promise(res=>{const L={},w=eng();w.onmessage=e=>{const t=typeof e.data=='string'?e.data:'';let m;
+ if(t.startsWith('info')&&(m=t.match(/multipv (\d+) score (cp|mate) (-?\d+).* pv (\S+)/))){let v=+m[3];if(m[2]=='mate')v=(v>0?1:-1)*(10000-Math.abs(v)*10);L[m[1]]={uci:m[4],cp:v}}
+ else if(t.startsWith('bestmove'))res(Object.keys(L).sort().map(k=>L[k]))};w.postMessage('position fen '+fen);w.postMessage('go movetime 350')});
+// ---------- review ----------
+async function open(x){const my=++gen;$('#home').style.display='none';$('#rv').style.display='flex';flip=!x.w;cur=0;R=[];
+ $('#gt').textContent=`${x.g.white.username} vs ${x.g.black.username}`;
+ const c=new Chess();c.load_pgn(x.g.pgn);moves=c.history({verbose:true});const t=new Chess();fens=[t.fen()];moves.forEach(m=>{t.move(m.san);fens.push(t.fen())});
+ lines=[];draw();info();for(let i=0;i<fens.length;i++){if(my!=gen)return;const g=new Chess(fens[i]);lines[i]=g.game_over()?[]:await analyse(fens[i]);$('#pg').textContent=`Analysing ${i+1}/${fens.length}`}
+ $('#pg').textContent='Analysis complete';classifyAll();draw();info();mlist()}
+const uci=m=>m.from+m.to+(m.promotion||'');
+const cpOf=i=>lines[i].length?lines[i][0].cp:(new Chess(fens[i]).in_checkmate()?-10000:0);
+function classifyAll(){const im=$('#sy').value=='im';R=[];let bookOn=true,nov=false;
+ moves.forEach((m,i)=>{const b=cpOf(i),a=-cpOf(i+1),best=lines[i][0]&&lines[i][0].uci==uci(m);let loss=best?0:Math.max(0,wp(b)-wp(a));const wB=wp(b),wA=wp(a),pl=i>0?R[i-1].loss:0;
+  const tags=[];if(bookOn&&i<12&&loss<0.03)tags.push('book');else if(bookOn&&i>=4){bookOn=false;if(im&&loss<0.05&&!nov){nov=true;tags.push('novelty')}}else bookOn=false;
+  let c=loss<=.005?'best':loss<=.02?'excellent':loss<=.05?'good':loss<=.1?'inaccuracy':loss<=.2?'mistake':'blunder';
+  if(loss>=.1&&i>0&&pl>=.1&&wB>=.6)c='miss';
+  const g=new Chess(fens[i+1]),mv=g.moves({verbose:true}).some(o=>o.to==m.to&&o.captured),sac=VAL[m.piece]-(VAL[m.captured]||0)>=2&&mv;
+  if(loss<=.02&&sac&&wA>=.45&&wB<.9)c='brilliant';
+  else if(loss<=.01&&lines[i][1]&&wB-wp(lines[i][1].cp)>=.15&&wB>.3)c='great';
+  if(im){if(c=='excellent')c='good';
+   if(c=='good'&&loss>.01&&lines[i+1]&&lines[i+1][1]&&wp(-lines[i+1][0].cp)-wp(-lines[i+1][1].cp)>=.15&&wp(-lines[i+1][1].cp)<.5)c='practical';
+   const back=(m.color=='w'?m.to[1]<m.from[1]:m.to[1]>m.from[1]);if((c=='good'||c=='inaccuracy')&&back&&!m.captured&&loss>=.03&&!/[+#]/.test(m.san))c='passive'}
+  else if(c=='excellent'&&best)c='best';
+  R.push({c,tags,loss,best:lines[i][0]&&lines[i][0].uci})})}
+// ---------- UI ----------
+function pt(s){const C=s.charCodeAt(0)-97,r=8-s[1];return[(flip?7-C:C)*10+5,(flip?7-r:r)*10+5]}
+let AR=[];function arrows(){$('#ag').innerHTML=AR.map(a=>{const[x1,y1]=pt(a.u.slice(0,2)),[x2,y2]=pt(a.u.slice(2,4)),d=Math.hypot(x2-x1,y2-y1)||1,k=2.2/d;
+ return`<line x1="${x1}" y1="${y1}" x2="${x2-(x2-x1)*k}" y2="${y2-(y2-y1)*k}" stroke="${a.c}" stroke-width="1.6" stroke-opacity=".85" marker-end="url(#mk)"/>`}).join('')}
+function draw(){const b=new Chess(fens[cur]).board(),lm=moves[cur-1];let h='';
+ for(let r=0;r<8;r++)for(let c=0;c<8;c++){const Rr=flip?7-r:r,C=flip?7-c:c,p=b[Rr][C],sq='abcdefgh'[C]+(8-Rr),k=p?p.color+p.type.toUpperCase():'';
+  h+=`<div class="sq ${(Rr+C)%2?'d':'l'}${lm&&(lm.from==sq||lm.to==sq)?' hl':''}">${p?`<img src="pieces/${k}.png" onerror="this.replaceWith('${k}')">`:''}</div>`}
+ $('#grid').innerHTML=h;arrows();document.querySelectorAll('.mv').forEach(e=>e.classList.toggle('on',+e.dataset.i==cur-1))}
+function info(){const m=moves[cur-1],r=R[cur-1];let s=m?`<b>${Math.ceil(cur/2)}${cur%2?'.':'...'} ${m.san}</b>`:'Start position';
+ if(r)s+=` <span style="color:${CO[r.c]}">${badge(r.c)} ${r.c}</span>`+r.tags.map(t=>` <span style="color:${CO[t]}">${badge(t)} ${t}</span>`).join('')+`<div class="mu">Expected points lost: ${r.loss.toFixed(2)}${r.best&&r.best!=uci(m)?' | Best: '+r.best:''}</div>`;
+ if(lines[cur]&&lines[cur][0]){const e=lines[cur][0].cp*(new Chess(fens[cur]).turn()=='w'?1:-1);s+=`<div class="mu">Eval (White): ${Math.abs(e)>=9000?'mate':(e/100).toFixed(2)}</div>`}
+ $('#info').innerHTML=s;lucide.createIcons()}
+function mlist(){let h='';moves.forEach((m,i)=>{if(i%2==0)h+=`<span class="mu">${i/2+1}.</span>`;const r=R[i];h+=`<span class="mv" data-i="${i}">${m.san}${r?badge(r.c)+r.tags.map(badge).join(''):''}</span>`});
+ $('#ml').innerHTML=h;document.querySelectorAll('.mv').forEach(e=>e.onclick=()=>go(+e.dataset.i+1));lucide.createIcons();draw()}
+function go(n){cur=Math.max(0,Math.min(moves.length,n));AR=[];draw();info()}
+$('#p0').onclick=()=>go(0);$('#pp').onclick=()=>go(cur-1);$('#pn').onclick=()=>go(cur+1);$('#p9').onclick=()=>go(moves.length);
+onkeydown=e=>{if($('#rv').style.display=='flex'){if(e.key=='ArrowLeft')go(cur-1);if(e.key=='ArrowRight')go(cur+1)}};
+$('#back').onclick=()=>{gen++;$('#rv').style.display='none';$('#home').style.display=''};
+$('#clr').onclick=()=>{AR=[];arrows()};
+$('#sbm').onclick=()=>{const r=R[cur-1];AR=r&&r.best?[{u:r.best,c:'#3fb950'}]:[];arrows()};
+function fillCl(){$('#cl').innerHTML=SYS[$('#sy').value].map(c=>`<option>${c}</option>`).join('')}
+$('#sy').onchange=()=>{fillCl();if(R.length){classifyAll();mlist();info()}};fillCl();
+$('#sam').onclick=()=>{const c=$('#cl').value,L=lines[cur-1];if(!L)return;const b=L[0].cp,mover=moves[cur-1];
+ AR=L.filter((l,k)=>{const loss=k==0?0:wp(b)-wp(l.cp);return(c=='best'&&k==0)||(c=='excellent'&&k>0&&loss<=.02)||(c=='good'&&k>0&&loss>.02&&loss<=.05)||(c=='inaccuracy'&&loss>.05&&loss<=.1)||(c=='mistake'&&loss>.1&&loss<=.2)||(c=='blunder'&&loss>.2)||(c=='great'&&R[cur-1]&&R[cur-1].c=='great'&&k==0)||(c=='brilliant'&&R[cur-1]&&R[cur-1].c=='brilliant'&&k==0)}).map(l=>({u:l.uci,c:CO[c]||'#58a6ff'}));
+ if(!AR.length)$('#info').insertAdjacentHTML('beforeend','<div class="mu">No engine candidate in this class (top 4 lines only).</div>');arrows()};
+lucide.createIcons();
+</script></body></html>
